@@ -3,8 +3,6 @@
 """Tests for `munsellkit` package."""
 
 import pytest
-
-
 from munsellkit import munsellkit
 
 
