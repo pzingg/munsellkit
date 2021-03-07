@@ -1,5 +1,7 @@
-"""Functions that convert from Munsell space to RGB space, using the 'colour'
-package.
+"""Convert between Munsell and RGB color spaces.
+
+Various functions that convert from Munsell space to RGB space, using the 'colour'
+package from Colour Science.
 """
 
 import numpy as np
@@ -34,7 +36,7 @@ COLORLAB_HUE_NAMES = [
 
 
 def munsell_color_to_rgb(color):
-    """Uses the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
+    """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
     
     Parameters
     ----------
@@ -46,13 +48,12 @@ def munsell_color_to_rgb(color):
     np.ndarray of shape (3,) and dtype float
       (`r`, `g`, `b`) with `r`, `g`, and `b` in the domain [0, 1]
     """
-
     spec = cnm.munsell_colour_to_munsell_specification(color)
     return munsell_specification_to_rgb(spec)
 
 
 def munsell_specification_to_rgb(spec):
-    """Uses the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
+    """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
     
     Parameters
     ----------
@@ -71,7 +72,6 @@ def munsell_specification_to_rgb(spec):
     See https://www.munsellcolourscienceforpainters.com/MunsellResources/MunsellResources.html
     and https://stackoverflow.com/questions/3620663/color-theory-how-to-convert-munsell-hvc-to-rgb-hsb-hsl
     """
-
     # The first step is to convert the Munsell color to *CIE xyY* 
     # colorspace.
     xyY = cnm.munsell_specification_to_xyY(spec)
@@ -91,7 +91,7 @@ def munsell_specification_to_rgb(spec):
 
 
 def deprecated_rgb_to_munsell_specification(r, g, b):
-    """Uses the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
+    """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
     
     Parameters
     ----------
@@ -115,7 +115,6 @@ def deprecated_rgb_to_munsell_specification(r, g, b):
     domains for value and chroma, and will also raise errors when no convergence 
     is found (usually for high-value, low-chroma colors).
     """
-
     rgb = np.array([r / 255, g / 255, b / 255])
     if rgb.max() == 0:
         return np.array([np.nan, 0, np.nan, np.nan])
@@ -130,10 +129,11 @@ def deprecated_rgb_to_munsell_specification(r, g, b):
 
 
 def Y_to_munsell_value(Y):
-    """Uses the 'colour' package's `munsell_value_ASTMD1535` function to 
+    """Get the Munsell `value` corresponding to an xyY `Y` luminosity.
+    
+    Use the 'colour' package's `munsell_value_ASTMD1535` function to 
     convert the `Y` luminosity value of the xyY color space in the domain [0, 1] 
     into the corresponding Munsell `value` in the domain [0, 10].
     """
-
     with utilities.common.domain_range_scale('ignore'):
         return notation.munsell_value_ASTMD1535(Y * 100)

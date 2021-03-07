@@ -1,5 +1,9 @@
-"""Functions that use Rscript shell processes to convert Munsell colors
+"""Transform colors with 'munsellinterpol'.
+
+These functions use Rscript shell processes to convert to and from the Munsell colorspace
 using the R 'munsellinterpol' package.
+
+See: https://cran.r-project.org/web/packages/munsellinterpol/index.html
 """
 
 import importlib.resources
@@ -28,16 +32,19 @@ MUNSELLINTERPOL_HUE_NAMES = [
 
 
 def rgb_to_munsell_specification(r, g, b):
-    """Uses R 'munsellinterpol' package to convert from RGB to Munsell color.
+    """Use the R 'munsellinterpol' package to convert from RGB to Munsell color.
 
-      Parameters
+    Parameters
     ----------
-    r, g, b : number in the domain [0, 255]
+    r, g, b : numbers in the domain [0, 255]
 
     Returns
     -------
+    np.ndarray of shape (4,) and dtype float
+      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
-
     with importlib.resources.path(RSCRIPTS_PACKAGE, 'to_munsell.R') as rscript_path:
         out = subprocess.check_output([_rscript_executable_path(), 
             str(rscript_path), 'sRGB', str(r), str(g), str(b)])
@@ -52,8 +59,20 @@ def rgb_to_munsell_specification(r, g, b):
 
 
 def xyY_to_munsell_specification(xyY):
-    """x, y, Y in [0, 1]"""
+    """Use the R 'munsellinterpol' package to convert from xyY space to a Munsell color.
 
+    Parameters
+    ----------
+    xyY : np.ndarray of shape (3,) and dtype float
+        Its elements `x`, `y`, `Y` are numbers in the domain [0, 1].
+
+    Returns
+    -------
+    np.ndarray of shape (4,) and dtype float
+      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
+    """
     x, y, Y = xyY
 
     with importlib.resources.path(RSCRIPTS_PACKAGE, 'to_munsell.R') as rscript_path:
@@ -70,6 +89,21 @@ def xyY_to_munsell_specification(xyY):
 
 
 def munsell_color_to_xyY(color, xyC='NBS'):
+    """Use the R 'munsellinterpol' package to calculate the xyY values for a Munsell color.
+
+    Parameters
+    ----------
+    color : str
+        A Munsell color name, like 'N5.5' or '7.5GY3.2/2.1'.
+    xyC : str, default 'NBS'
+        The name of the 'C' illuminant used to correct the color.
+    
+    Returns
+    -------
+    np.ndarray of shape (3,) and dtype float
+        The `x`, `y` and `Y` values for the color in the xyY color space, each
+        in the domain [0, 1].
+    """
     with importlib.resources.path(RSCRIPTS_PACKAGE, 'munsell_to_xyy.R') as rscript_path:
         out = subprocess.check_output([_rscript_executable_path(), 
             str(rscript_path), color, xyC])
@@ -84,6 +118,19 @@ def munsell_color_to_xyY(color, xyC='NBS'):
 
 
 def munsell_color_to_rgb(color):
+    """Use the R 'munsellinterpol' package to calculate the RGB values for a Munsell color.
+
+    Parameters
+    ----------
+    color : str
+        A Munsell color name, like 'N5.5' or '7.5GY3.2/2.1'.
+    
+    Returns
+    -------
+    np.ndarray of shape (3,) and dtype float
+        The `r`, `g` and `b` values for the color in the RGB color space, each
+        in the domain [0, 1].
+    """
     with importlib.resources.path(RSCRIPTS_PACKAGE, 'munsell_to_rgb.R') as rscript_path:
         out = subprocess.check_output([_rscript_executable_path(), 
             str(rscript_path), color])
@@ -99,12 +146,10 @@ def munsell_color_to_rgb(color):
     return np.array(data) / 255
 
 
-def _rscript_executable_path():
-    return shutil.which('Rscript')
-
-
 def _to_colorlab_specification(hvc):
-    """Converts a Munsell color specification from the 'munsellinterpol' package into
+    """Convert between Munsell color specification formats.
+    
+    Convert a Munsell color specification from the 'munsellinterpol' package into
     the Colorlab-compatible format.
 
     Parameters
@@ -119,7 +164,6 @@ def _to_colorlab_specification(hvc):
       with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
-
     hue, value, chroma = hvc
     if value <= 0 or chroma <= 0:
         # Grays
@@ -134,7 +178,9 @@ def _to_colorlab_specification(hvc):
 
 
 def _to_colorlab_hue(hue):
-    """Converts single hue value from 'munsellinterpol' package into
+    """Convert between Munsell hue value formats.
+    
+    Convert a single hue value from 'munsellinterpol' package into
     `hue_shade` and `hue_index` Colorlab values.
 
     Parameters
@@ -146,7 +192,6 @@ def _to_colorlab_hue(hue):
     hue_shade, hue_index : float
       With `hue_shade` in domain [0, 10] and `hue_index` in domain [1, 10].
     """
-
     if hue == 0:
         hue = 100
 
@@ -169,3 +214,7 @@ def _to_colorlab_hue(hue):
     # |   RP |               9 |        8 |
     hue_index = ((16 - hue_index) % 10) + 1
     return (hue_shade, hue_index)
+
+
+def _rscript_executable_path():
+    return shutil.which('Rscript')

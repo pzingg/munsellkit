@@ -9,7 +9,89 @@ from colour import notation, volume
 warnings.simplefilter('ignore', category=utilities.ColourUsageWarning)
 
 
-def adjust_to_macadam_limits(xyY):
+
+def xyY_to_munsell_specification(xyY):
+    """Use the 'colour' package to convert from xyY space to a Munsell color.
+
+    Parameters
+    ----------
+    xyY : np.ndarray of shape (3,) and dtype float
+        Its elements `x`, `y`, `Y` are numbers in the domain [0, 1].
+
+    Returns
+    -------
+    np.ndarray of shape (4,) and dtype float
+      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
+    """
+    xyY_adjusted, value = _adjust_value_up(xyY)
+    if value < 1:
+        return np.array([np.nan, value, np.nan, np.nan])
+
+    adjust_down = False
+    try:
+        munsell_spec = notation.munsell.xyY_to_munsell_specification(xyY_adjusted)
+    except Exception as e:
+        warnings.warn(str(e))
+        adjust_down = True
+
+    if adjust_down:
+        xyY_adjusted, value, munsell_spec = _adjust_value_down(xyY_adjusted, value)
+    return munsell_spec
+
+
+def munsell_specification_to_renotation_colour(spec):
+    """Find the closest color in the Munsell Renotation to a given Munsell color.
+
+    Parameters
+    ----------
+    spec : np.ndarray of shape (4,) and dtype float
+      A Colorlab-compatible unconstrained Munsell specification. The specification 
+      contains elements (`hue_shade`, `value`, `chroma`, `hue_index`), with 
+      `hue_shade` in [0, 10], `value` in [0, 10], `chroma` in [0, 50] and 
+      `hue_index` one of [1, 2, 3, ..., 10].
+
+    Returns
+    -------
+    np.ndarray of shape (4,) and dtype float
+      A Colorlab-compatible Munsell specification within the Munsell Renotation.
+      The specification contains elements (`hue_shade`, `value`, `chroma`, `hue_index`),
+      with `hue_shade` one of [0, 2.5, 5, 7.5], `value` one of [0, 1, 2, ..., 10], 
+      `chroma` one of [0, 2, 4, ..., 50] and `hue_index` one of [1, 2, 3, ..., 10].
+    """
+    hue_lcd = 2.5
+    value_lcd = 1
+    chroma_lcd = 2
+    hue_shade, value, chroma, hue_index = spec
+    value = round(value / value_lcd) * value_lcd
+
+    # hue_shade and chroma could be nan
+    if notation.munsell.is_grey_munsell_colour(spec):
+        return ('N', 0, value, 0, 0)
+
+    chroma = round(chroma / chroma_lcd) * chroma_lcd
+    if value == 10 or chroma == 0:
+        return ('N', 0, value, 0, 0)
+
+    hue_index = int(hue_index)
+    assert hue_index >= 1
+    assert hue_index <= 10
+    hue_shade = round(hue_shade / hue_lcd) * hue_lcd
+    if hue_shade == 0:
+        hue_shade = 10
+        hue_index = hue_index + 1
+    hue_name = COLORLAB_HUE_NAMES[(hue_index - 1) % 10]
+    value = round(value / value_lcd) * value_lcd
+    return (f'{hue_shade}{hue_name}', hue_shade, value, chroma, hue_index)
+
+
+def _adjust_to_macadam_limits(xyY):
+    """Ensure that an xyY color is within the MacAdam limits.
+
+    The `Y` value (luminosity) of the color is adjusted up towards 0.5 until the
+    color is within the MacAdam limits.
+    """
     if volume.is_within_macadam_limits(xyY, munsell.ILLUMINANT_NAME_MUNSELL):
         return xyY
 
@@ -25,7 +107,12 @@ def adjust_to_macadam_limits(xyY):
     raise RuntimeError(f'Could not adjust MacAdam for xyY {xyY}')
 
 
-def adjust_value_up(xyY):
+def _adjust_value_up(xyY):
+    """Ensure that an xyY color will have a Munsell `value` within expected limits.
+
+    The `Y` value (luminosity) is adjusted up towards 0.2 until the
+    Munsell `value` for the color is in the domain [1, 10].
+    """
     Y = xyY[2]
   
     # Already in domain '1'
@@ -54,7 +141,12 @@ def adjust_value_up(xyY):
     raise RuntimeError(f'Could not adjust Munsell value up for xyY {xyY}, last Y tested was {Y_temp:.03f}')
 
 
-def adjust_value_down(xyY, value):
+def _adjust_value_down(xyY, value):
+    """Ensure that an xyY color will converge to a Munsell color during interpolation.
+
+    The `Y` value (luminosity) is adjusted down towards 0.8 until the
+    Munsell color is interpolated.
+    """
     Y = xyY[2]
 
     # Already in domain '1'
@@ -85,47 +177,3 @@ def adjust_value_down(xyY, value):
         i = i + 1
 
     raise RuntimeError(f'Could not adjust Munsell value down for xyY {xyY}, last Y tested was {Y_temp:.03f}')
-
-
-def xyY_to_munsell_specification(xyY):
-    xyY_adjusted, value = adjust_value_up(xyY)
-    if value < 1:
-        return np.array([np.nan, value, np.nan, np.nan])
-
-    adjust_down = False
-    try:
-        munsell_spec = notation.munsell.xyY_to_munsell_specification(xyY_adjusted)
-    except Exception as e:
-        warnings.warn(str(e))
-        adjust_down = True
-
-    if adjust_down:
-        xyY_adjusted, value, munsell_spec = adjust_value_down(xyY_adjusted, value)
-    return munsell_spec
-
-
-def munsell_specification_to_renotation_colour(spec):
-    hue_lcd = 2.5
-    value_lcd = 1
-    chroma_lcd = 2
-    hue_shade, value, chroma, hue_index = spec
-    value = round(value / value_lcd) * value_lcd
-
-    # hue_shade and chroma could be nan
-    if notation.munsell.is_grey_munsell_colour(spec):
-        return ('N', 0, value, 0, 0)
-
-    chroma = round(chroma / chroma_lcd) * chroma_lcd
-    if value == 10 or chroma == 0:
-        return ('N', 0, value, 0, 0)
-
-    hue_index = int(hue_index)
-    assert hue_index >= 1
-    assert hue_index <= 10
-    hue_shade = round(hue_shade / hue_lcd) * hue_lcd
-    if hue_shade == 0:
-        hue_shade = 10
-        hue_index = hue_index + 1
-    hue_name = COLORLAB_HUE_NAMES[(hue_index - 1) % 10]
-    value = round(value / value_lcd) * value_lcd
-    return (f'{hue_shade}{hue_name}', hue_shade, value, chroma, hue_index)

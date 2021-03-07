@@ -23,6 +23,9 @@ Munsell color space tools
 Colour Science for Python's **colour** Python package.
 Available from https://www.colour-science.org
 
+The R language **munsellinterpol** package.
+Available from https://cran.r-project.org/web/packages/munsellinterpol/index.html
+
 The **Pillow** Python imaging library, including the **ImageCms** color management module, 
 which is built on top of the **Little CMS** color engine.
 Available from https://pillow.readthedocs.io/en/stable

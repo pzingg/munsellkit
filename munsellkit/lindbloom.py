@@ -1,4 +1,6 @@
-"""Functions that use Bruce Lindbloom's Uniform Perceptual LAB color space 
+"""UP LAB color space conversions.
+
+Functions that use Bruce Lindbloom's Uniform Perceptual LAB color space 
 and ICC profile. See http://www.brucelindbloom.com/index.html?UPLab.html.
 """
 
@@ -24,8 +26,11 @@ CAT_BRADFORD_C_TO_D65 = np.array([
 
 
 def rgb_to_munsell_specification(r, g, b, with_renotation=False):
-    """Transforms a color in the sRGB color space to a Munsell color
-    by way of the UP LAB color space.
+    """Transform a color in the sRGB color space to a Munsell color.
+
+    The transformation is performed using by first converting the RGB color
+    into the UP LAB color space, and then extracting the Munsell values
+    from the UP LAB coordinates.
 
     Parameters
     ----------
@@ -38,7 +43,6 @@ def rgb_to_munsell_specification(r, g, b, with_renotation=False):
       with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
-
     lab = rgb_to_uplab(r, g, b)
     raw_spec = uplab_to_munsell_specification(lab)
     if with_renotation:
@@ -49,7 +53,7 @@ def rgb_to_munsell_specification(r, g, b, with_renotation=False):
 
 
 def rgb_to_uplab(r, g, b):
-    """Transforms a color from the sRGB color space to the UP LAB color space.
+    """Transform a color from the sRGB color space to the UP LAB color space.
 
     Parameters
     ----------
@@ -68,7 +72,6 @@ def rgb_to_uplab(r, g, b):
     algorithms, which choke and/or assert quite frequently.  However the LAB space
     that is used is only 8 bits per channel.
     """
-
     # Load the profiles and build a transform
     srgb_to_uplab_transform = _build_transform()
 
@@ -104,7 +107,7 @@ CHROMA_FACTOR = 50
 
 
 def uplab_to_munsell_specification(lab):
-    """Converts a point in the normalized UP LAB space to its equivalent Munsell color.
+    """Convert a color in the normalized UP LAB space to its equivalent Munsell color.
 
     Parameters
     ----------
@@ -119,7 +122,6 @@ def uplab_to_munsell_specification(lab):
       with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
-
     l, a_star, b_star = lab
 
     # Apply heuristics
@@ -165,7 +167,7 @@ def uplab_to_munsell_specification(lab):
 
 
 def uplab_to_renotation_specification(spec, lab):
-    """Converts a point in the normalized UP LAB space to its equivalent Munsell color.
+    """Convert a color in the normalized UP LAB space to its equivalent Munsell color.
 
     Parameters
     ----------
@@ -188,7 +190,6 @@ def uplab_to_renotation_specification(spec, lab):
     of [0, 2, 4, ..., 50]). Selects the one with the closest cartesian distance to the 
     given target.
     """
-
     hue_shade, value, chroma, hue_index = spec
 
     v_ren = value
@@ -230,7 +231,8 @@ def uplab_to_renotation_specification(spec, lab):
 
 
 def munsell_specification_to_uplab(spec):
-    """Converts a Munsell color to its equivalent in the normalized UP LAB space.
+    """Convert a Munsell color to its equivalent in the normalized UP LAB space.
+
     This function is the inverse of `uplab_to_munsell_specification`.
 
     Parameters
@@ -246,7 +248,6 @@ def munsell_specification_to_uplab(spec):
       The `l', `a-star` and `b-star` values for the color, with `l` in the domain [0, 1],
       and `a-star` and `b-star` each in the domain [-0.5, 0.5].
     """
-    
     hue_shade, value, chroma, hue_index = spec
 
     if np.isnan(hue_shade):
