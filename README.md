@@ -1,10 +1,9 @@
+[![PyPI-Server](https://img.shields.io/pypi/v/munsellkit.svg)](https://pypi.python.org/pypi/munsellkit)
+[![Build Status]](https://img.shields.io/travis/pzingg/munsellkit.svg)(https://travis-ci.com/pzingg/munsellkit)
+[![Documentation Status](https://readthedocs.org/projects/munsellkit/badge/?version=latest)](https://munsellkit.readthedocs.io/en/latest/?version=latest)
+
+
 # MunsellKit
-
-<a href="https://pypi.python.org/pypi/munsellkit"><img src="https://img.shields.io/pypi/v/munsellkit.svg"></a>
-
-<a href="https://travis-ci.com/pzingg/munsellkit"><img src="https://img.shields.io/travis/pzingg/munsellkit.svg"></a>
-
-<a href="https://munsellkit.readthedocs.io/en/latest/?version=latest"><img src="https://readthedocs.org/projects/munsellkit/badge/?version=latest" alt="Documentation Status"></a>
 
 
 Munsell color space tools
