@@ -1,0 +1,20 @@
+DISCLAIMER:
+
+These data are based on the Munsell Renotation data as found on the Munsel Color Science Laboratory web pages. Currently the path is here:
+www.cis.rit.edu/research/mcsl/online/munsell.php
+
+The data file used here is real.dat. For details on the use of this file see the above web page.
+
+There are several additional columns of data in this file:
+
+file order - this is the row number of the data in real.dat
+
+HVC - Munsell notation (from real.dat)
+
+xyY - illuminant C chromaticity and luminance values (from real.dat)
+
+XYZ_C - illuminant C tristumulus values (traditional transform from xyY) (these are 2° 1931 based)
+
+CIELAB L* a* b* using illuminant C
+
+DRW 20Oct2011

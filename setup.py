@@ -4,11 +4,11 @@
 
 from setuptools import setup, find_packages
 
-with open('README.rst') as readme_file:
+with open('README.md') as readme_file:
     readme = readme_file.read()
 
-with open('HISTORY.rst') as history_file:
-    history = history_file.read()
+with open('CHANGELOG.md') as changelog_file:
+    changelog = changelog_file.read()
 
 requirements = [ ]
 
@@ -39,13 +39,13 @@ setup(
     },
     install_requires=requirements,
     license="MIT license",
-    long_description=readme + '\n\n' + history,
-    # long_description_content_type=text/markdown,
-    # long_description_content_type=text/x-rst,
+    long_description=readme + '\n\n' + changelog,
+    long_description_content_type='text/markdown',
     include_package_data=True,
     keywords='munsellkit',
     name='munsellkit',
-    packages=find_packages(include=['munsellkit', 'munsellkit.*']),
+    packages=find_packages(where='src', include=['munsellkit', 'munsellkit.*']),
+    package_dir={'': 'src'},
     # project_urls={'Bug Tracker': https://github.com/pypa/sampleproject/issues},
     setup_requires=setup_requirements,
     test_suite='tests',

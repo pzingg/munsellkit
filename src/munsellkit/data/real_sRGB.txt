@@ -1,0 +1,28 @@
+DISCLAIMER:
+If sRGB representation of Munsell colors is really important to you, your job, or your company, you should repeat this work for yourself. Also, know that sRGB is good, but most useful when viewed on a calibrated display.
+
+These data are based on the Munsell Renotation data as found on the Munsel Color Science Laboratory web pages. Currently the path is here:
+www.cis.rit.edu/research/mcsl/online/munsell.php
+
+The files here is real.dat. For details on the use of this file see the above web page.
+
+There are several additional columns of data in this file:
+
+file order - this is the row number of the data in real.dat
+
+HVC - Munsell notation (from real.dat)
+
+xyY - illuminant C chromaticity and luminance values (from real.dat)
+
+XYZ_C - illuminant C tristumulus values (traditional transform from xyY)
+
+XYZ_D65 - XYZ_C data transformed using CIE CAT 2002 chromatic adaptation transformation
+(The D65 data are required because that is the definied input for sRGB)
+
+sRGB - these are the analog sRGB data
+
+dRGB - 8-bit digital counts calculated using round(sRGB * 255)
+
+IMPORTANT: the final sRGB data file is shorter than real.dat because data outside [0,1] have been removed.
+
+DRW 16Dec10

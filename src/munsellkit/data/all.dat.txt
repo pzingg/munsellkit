@@ -1,0 +1,29 @@
+Data from Rochester Institute of Technology
+Munsell Color Science Lab
+
+https://www.rit.edu/science/munsell-color-science-lab-educational-resources
+
+all.dat.csv
+
+These are all the Munsell data, including the extrapolated colors. Note that 
+extrapolated colors are in some cases unreal. That is, some lie outsize the 
+Macadam limits.
+
+This file should be used for those performing multidimensional interpolation
+to/from Munsell data. You will need the unreal colors in order to completely 
+encompass the real colors, which is required to do the interpolation when 
+near the Macadam limits.
+
+real_sRGB.csv and real_CIELAB.csv
+
+These are real colors only, "real" being those lying inside the Macadam 
+limits. Specifically, these are those colors listed the original 1943 
+renotation article (Newhall, Judd, and Nickerson, JOSA, 1943).
+
+This file should be used for a complete mapping between the Munsell system 
+and its CIE equivalents. Note, however, that many of these colors were 
+not used in the original scaling experiments, and are therefore extrapolated 
+or at best interpolated from the test colors used.
+
+See real_sRGB.txt and real_CIELAB.txt for more information on the 
+color space values in the two files.

@@ -1,18 +1,21 @@
-include AUTHORS.rst
-include CONTRIBUTING.rst
-include HISTORY.rst
+include AUTHORS.md
+include CONTRIBUTING.md
+include CHANGELOG.md
 include LICENSE
-include README.rst
+include README.md
 
-recursive-include tests *
-recursive-exclude * __pycache__
-recursive-exclude * *.py[co]
+graft tests
+graft docs
+graft src
 
-recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
+global-include *.rst *.md conf.py Makefile make.bat *.jpg *.png *.gif
 
-include munsellkit/data/*.icc
-include munsellkit/data/*.csv
-include munsellkit/data/*.txt
-include munsellkit/rscripts/*.R
+include src/munsellkit/data/*.icc
+include src/munsellkit/data/*.csv
+include src/munsellkit/data/*.txt
+include src/munsellkit/rscripts/*.R
 
+prune docs/_build
 
+global-exclude __pycache__
+global-exclude *.py[co]
