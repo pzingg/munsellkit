@@ -4,10 +4,14 @@ Various functions that convert from Munsell space to RGB space, using the 'colou
 package from Colour Science.
 """
 
+import csv
+import importlib.resources
 import re
 import numpy as np
 import colour
 from colour.notation import munsell as cnm
+
+import munsellkit.minterpol as mint
 
 
 # CIE 1931 2 Degree Standard Observers
@@ -377,11 +381,52 @@ def deprecated_rgb_to_munsell_specification(r, g, b):
 
     XYZ = colour.sRGB_to_XYZ(rgb, ILLUMINANT_C)
     xyY = colour.XYZ_to_xyY(XYZ)
-    v = new_Y_to_munsell_value(xyY[2])
-    if v < 1.0:
-        return np.array([np.nan, v, np.nan, np.nan])
+    return xyY_to_munsell_specification(xyY)
 
+
+
+def deprecated_xyY_to_munsell_specification(xyY):
+    """Convert a color in xyY space to its Munsell equivalent.
+
+    Parameters
+    ----------
+    xyY : np.ndarray of shape (3,) and dtype float
+      The tristimulus values for the color, each in the domain [0, 1].
+
+    Returns
+    -------
+    np.ndarray of shape (4,) and dtype float
+      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
+
+    Notes
+    -----
+    Use of this function is not recommended.
+
+    The 'colour' package raises AssertionErrors for values outside the expected
+    domains for value and chroma, and will also raise errors when no convergence 
+    is found (usually for high-value, low-chroma colors).
+    """
+    v = Y_to_munsell_value(xyY[2])
+    # if v < 1.0:
+    #    return np.array([np.nan, v, np.nan, np.nan])
+
+    # This can raise:
+    # ColourUsageWarning: "<color>" is not within "MacAdam" limits for illuminant "C"
     return cnm.xyY_to_munsell_specification(xyY)
+
+
+DATA_PACKAGE = 'munsellkit.data'
+
+def neutrals():
+    """Return a generator that reads the 'munsell_neutrals.csv' file.
+
+    """
+    with importlib.resources.open_text(DATA_PACKAGE, 'munsell_neutrals.csv') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            yield row
 
 
 def Y_to_munsell_value(Y):
@@ -391,7 +436,5 @@ def Y_to_munsell_value(Y):
     convert the `Y` luminosity value of the xyY color space in the domain [0, 1] 
     into the corresponding Munsell `value` in the domain [0, 10].
     """
-    with utilities.common.domain_range_scale('ignore'):
-        return notation.munsell_value_ASTMD1535(Y * 100)
-
-
+    with colour.utilities.common.domain_range_scale('ignore'):
+        return colour.notation.munsell_value_ASTMD1535(Y * 100)

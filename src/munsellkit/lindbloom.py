@@ -52,7 +52,6 @@ def rgb_to_munsell_specification(r, g, b, with_renotation=False):
     else:
         return raw_spec
 
-
 def rgb_to_uplab(r, g, b):
     """Transform a color from the sRGB color space to the UP LAB color space.
 

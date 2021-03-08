@@ -11,6 +11,7 @@ import json
 import shutil
 import subprocess
 import numpy as np
+import colorspacious
 
 
 RSCRIPTS_PACKAGE = 'munsellkit.rscripts'
@@ -52,9 +53,9 @@ def rgb_to_munsell_specification(r, g, b):
         res = json.loads(out)
     except:
         res = None
-    if not isinstance(res, list) or len(res) == 0:
-        raise Exception(f"to_munsell.R returned unexpected output '{out}'")
-    data = res[0]
+    if not isinstance(res, list) or len(res) == 0 or len(res[0]) != 3:
+        raise Exception(f"to_munsell.R returned '{out}'")
+    data = _make_numpy_array(res[0])
     return _to_colorlab_specification(data)
 
 
@@ -82,11 +83,48 @@ def xyY_to_munsell_specification(xyY):
         res = json.loads(out)
     except:
         res = None
-    if not isinstance(res, list) or len(res) == 0:
-        raise Exception(f"to_munsell.R returned unexpected output '{out}'")
-    data = res[0]
+    if not isinstance(res, list) or len(res) == 0 or len(res[0]) != 3:
+        raise Exception(f"to_munsell.R returned '{out}'")
+    data = _make_numpy_array(res[0])
     return _to_colorlab_specification(data)
 
+
+def jch_to_munsell_specification(jch):
+    """Convert a color in the CIECAM02 Jch space to its Munsell equivalent.
+
+    Parameters
+    ----------
+    jch : np.ndarray of shape (3,) and dtype float
+      The `J`, `C` and `h` values for the color, with `J` and `C` in the domain
+      [0, 100] and `h` in the domain [0, 360].
+
+    Returns
+    -------
+    np.ndarray of shape (4,) and dtype float
+      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
+
+    Notes
+    -----
+    Uses the colorspacious package.
+    """
+    jch_space = {
+      'name': 'CIECAM02-subset', 
+      'axes': 'JCh', 
+      'ciecam02_space': colorspacious.CIECAM02Space.sRGB
+    }
+    xyzc_space = {
+      'name': 'CIELab', 
+      'XYZ100_w': 'C'
+    }
+
+    # We should use xyzc_space, but it breaks munsellinterpol
+    XYZ = colorspacious.cspace_convert(jch, jch_space, 'XYZ100') 
+    xyY = colour.XYZ_to_xyY(XYZ / 100)
+    # print(f'JCh {jch} -> XYZ {XYZ} -> xyY {xyY}')
+
+    return xyY_to_munsell_specification(xyY)
 
 def munsell_color_to_xyY(color, xyC='NBS'):
     """Use the R 'munsellinterpol' package to calculate the xyY values for a Munsell color.
@@ -111,10 +149,9 @@ def munsell_color_to_xyY(color, xyC='NBS'):
         res = json.loads(out)
     except:
         res = None
-    if not isinstance(res, list) or len(res) == 0:
-        raise Exception(f"munsell_to_xyy.R returned unexpected output '{out}'")
-    data = res[0]
-    return np.array(data)
+    if not isinstance(res, list) or len(res) == 0 or len(res[0]) != 3:
+        raise Exception(f"munsell_to_xyy.R returned '{out}'")
+    return _make_numpy_array(res[0])
 
 
 def munsell_color_to_rgb(color):
@@ -138,12 +175,16 @@ def munsell_color_to_rgb(color):
         res = json.loads(out)
     except:
         res = None
-    if not isinstance(res, list) or len(res) == 0:
-        raise Exception(f"munsell_to_rgb.R returned unexpected output '{out}'")
-    data = res[0]
-    if data[0] == 'NA':
+    if not isinstance(res, list) or len(res) == 0 or len(res[0]) != 3:
+        raise Exception(f"munsell_to_rgb.R returned '{out}'")
+    data = _make_numpy_array(res[0])
+
+    # If any elements are NaN, bail
+    if np.isnan(np.sum(data)):
         return np.array([np.nan, np.nan, np.nan])
-    return np.array(data) / 255
+
+    # Normalize to [0, 1]
+    return data / 255
 
 
 def _to_colorlab_specification(hvc):
@@ -165,11 +206,14 @@ def _to_colorlab_specification(hvc):
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
     hue, value, chroma = hvc
-    if value <= 0 or chroma <= 0:
+
+    # If error (value == -1), or value or chroma are zero, return black
+    if np.isnan(value) or value < 0:
+        value = 0
+    if np.isnan(chroma) or chroma < 0:
+        chroma = 0
+    if value == 0 or chroma == 0:
         # Grays
-        # If error (value == -1), or value or chroma are zero, return black
-        if value < 0:
-            value = 0
         return np.array([np.nan, value, np.nan, np.nan])
 
     # Colors
@@ -218,3 +262,8 @@ def _to_colorlab_hue(hue):
 
 def _rscript_executable_path():
     return shutil.which('Rscript')
+
+
+def _make_numpy_array(r_array):
+    return np.array([np.nan if v == 'NA' else v for v in r_array])
+
