@@ -213,7 +213,7 @@ def _to_colorlab_hue(hue):
     # |    P |               8 |        9 |
     # |   RP |               9 |        8 |
     hue_index = ((16 - hue_index) % 10) + 1
-    return (hue_shade, hue_index)
+    return (hue_shade, float(hue_index))
 
 
 def _rscript_executable_path():

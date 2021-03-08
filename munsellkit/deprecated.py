@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import colour
 from colour import notation, volume
+import munsellkit as mkit
 
 
 warnings.simplefilter('ignore', category=utilities.ColourUsageWarning)
@@ -39,51 +40,6 @@ def xyY_to_munsell_specification(xyY):
     if adjust_down:
         xyY_adjusted, value, munsell_spec = _adjust_value_down(xyY_adjusted, value)
     return munsell_spec
-
-
-def munsell_specification_to_renotation_colour(spec):
-    """Find the closest color in the Munsell Renotation to a given Munsell color.
-
-    Parameters
-    ----------
-    spec : np.ndarray of shape (4,) and dtype float
-      A Colorlab-compatible unconstrained Munsell specification. The specification 
-      contains elements (`hue_shade`, `value`, `chroma`, `hue_index`), with 
-      `hue_shade` in [0, 10], `value` in [0, 10], `chroma` in [0, 50] and 
-      `hue_index` one of [1, 2, 3, ..., 10].
-
-    Returns
-    -------
-    np.ndarray of shape (4,) and dtype float
-      A Colorlab-compatible Munsell specification within the Munsell Renotation.
-      The specification contains elements (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` one of [0, 2.5, 5, 7.5], `value` one of [0, 1, 2, ..., 10], 
-      `chroma` one of [0, 2, 4, ..., 50] and `hue_index` one of [1, 2, 3, ..., 10].
-    """
-    hue_lcd = 2.5
-    value_lcd = 1
-    chroma_lcd = 2
-    hue_shade, value, chroma, hue_index = spec
-    value = round(value / value_lcd) * value_lcd
-
-    # hue_shade and chroma could be nan
-    if notation.munsell.is_grey_munsell_colour(spec):
-        return ('N', 0, value, 0, 0)
-
-    chroma = round(chroma / chroma_lcd) * chroma_lcd
-    if value == 10 or chroma == 0:
-        return ('N', 0, value, 0, 0)
-
-    hue_index = int(hue_index)
-    assert hue_index >= 1
-    assert hue_index <= 10
-    hue_shade = round(hue_shade / hue_lcd) * hue_lcd
-    if hue_shade == 0:
-        hue_shade = 10
-        hue_index = hue_index + 1
-    hue_name = COLORLAB_HUE_NAMES[(hue_index - 1) % 10]
-    value = round(value / value_lcd) * value_lcd
-    return (f'{hue_shade}{hue_name}', hue_shade, value, chroma, hue_index)
 
 
 def _adjust_to_macadam_limits(xyY):

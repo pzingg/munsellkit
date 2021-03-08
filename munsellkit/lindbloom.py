@@ -9,6 +9,7 @@ import math
 import numpy as np
 from PIL import Image, ImageCms
 
+import munsellkit
 
 DATA_PACKAGE = 'munsellkit.data'
 
@@ -155,11 +156,8 @@ def uplab_to_munsell_specification(lab):
         hue = hue - 100
 
     idx, hue_shade = divmod(hue, 10)
-    idx = int(idx)
-    if hue_shade == 0:
-        hue_shade = 10
-        idx = idx - 1
-    hue_index = float((17 - idx) % 10) + 1
+    hue_index = (17 - int(idx)) % 10 + 1
+    hue_index, hue_shade = munsellkit.normalized_hue(hue_index, hue_shade, rounding=None)
     spec = np.array([hue_shade, value, chroma, hue_index])
     # print(f'SPEC {spec} <- a* {a_star} b* {b_star} hue_angle {hue_angle} hue {hue}')
 
@@ -217,7 +215,9 @@ def uplab_to_renotation_specification(spec, lab):
     closest = None
     for ct in [c0, c1]:
         for ht in [h0, h1]:
-            test_spec = _normalized_specification(ht, value, ct, hue_index)
+            test_spec = munsellkit.normalized_color(
+                np.array([ht, value, ct, hue_index]), 
+                rounding='renotation', out='spec')
             lt, at, bt = munsell_specification_to_uplab(test_spec)
             distance_sq = (at - a_star) * (at - a_star) + (bt - b_star) * (bt - b_star)
             # print(f'test {test_spec}: distance is {distance_sq}')
@@ -278,15 +278,6 @@ def munsell_specification_to_uplab(spec):
 def _clamp_8(v):
     return int(min(255, max(0, v)))
 
-
-def _normalized_specification(hue_shade, value, chroma, hue_index):      
-    if hue_shade == 0:
-        hue_shade = 10
-        if hue_index > 9.9:
-            hue_index = 1
-        else:
-            hue_index = hue_index + 1
-    return np.array([hue_shade, value, chroma, hue_index])
 
 
 def _build_transform():

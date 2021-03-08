@@ -9,3 +9,10 @@ recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 
 recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
+
+include munsellkit/data/*.icc
+include munsellkit/data/*.csv
+include munsellkit/data/*.txt
+include munsellkit/rscripts/*.R
+
+
