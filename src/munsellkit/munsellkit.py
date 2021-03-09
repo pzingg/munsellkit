@@ -40,21 +40,21 @@ COLORLAB_HUE_NAMES = [
 ]
 
 
-def normalized_color(spec, rounding=1, truncate=True, out='all'): 
+def normalized_color(spec, rounding=1, truncate=True, out='all'):
     """Normalize the color defined by a Colorlab specification.
 
     Parameters
     ----------
     spec : np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     rounding : int or 'renotation', default 1
       The number of decimal places to return in the 'total' item.
       If set to 'renotation' the hue_shade will be one of [0, 2.5, 5, 7.5].
       If omitted, no rounding will be done.
     truncate : boolean, default True
-      If true, trailing '.0' are stripped from the hue and color strings 
+      If true, trailing '.0' are stripped from the hue and color strings
       in the returned data.
     out : {'all','spec','color'}
       Determines the return value. If 'all', a three-tuple is returned.
@@ -65,7 +65,7 @@ def normalized_color(spec, rounding=1, truncate=True, out='all'):
     -------
     str
       The one- or two-letter code for the hue, like 'N' or 'PB'.
-    
+
     Raises
     ------
     ValueError if the hue_index is not an integer in [0, 10].
@@ -146,7 +146,7 @@ def normalized_hue(hue_index, hue_shade=None, rounding=1):
       The `hue_index` possibly rounded.
     hue_shade : float
       The `hue_shade` possibly rounded.
-    
+
     Raises
     ------
     ValueError if the hue_index is not an integer in [0, 10].
@@ -186,7 +186,7 @@ def hue_name_from_hue_index(hue_index):
     -------
     str
       The one- or two-letter code for the hue, like 'N' or 'PB'.
-    
+
     Raises
     ------
     ValueError if the hue_index is not an integer in [0, 10].
@@ -213,7 +213,7 @@ def astm_hue(hue_index, hue_shade=None):
     Returns
     -------
     int
-      The ASTM hue value for the hue, in the domain [0, 90]. 
+      The ASTM hue value for the hue, in the domain [0, 90].
       'R' is 0, 'YR' is 10, etc. Returns 0 for 0 (neutral).
 
     Raises
@@ -224,7 +224,7 @@ def astm_hue(hue_index, hue_shade=None):
         hue_index = 0
     h = int(hue_index)
     if h != hue_index or h < 0 or h > 10:
-        raise ValueError(f'Invalid hue index {hue_index}')      
+        raise ValueError(f'Invalid hue index {hue_index}')
     if h == 0:
         return 0
     if hue_shade is None:
@@ -254,8 +254,8 @@ def hue_data(hue_index, hue_shade=None, decimals=1, truncate=True):
     total_hue : str
       The total code for the hue, like '2.5PB'.
     astm_hue : float
-      The ASTM hue value in the domain [0, 100] 
-    
+      The ASTM hue value in the domain [0, 100]
+
     Raises
     ------
     ValueError if the hue_index is not an integer in [0, 10].
@@ -282,7 +282,7 @@ def hue_index_from_hue_name(hue_name):
     Returns
     -------
     int
-      The Colorlab `hue_index` for the hue. 'B' is 1, 'BG' is 2, etc. 
+      The Colorlab `hue_index` for the hue. 'B' is 1, 'BG' is 2, etc.
       Returns 0 for 'N' (neutral).
 
     Raises
@@ -297,7 +297,7 @@ def hue_index_from_hue_name(hue_name):
 
 def munsell_color_to_rgb(color):
     """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
-    
+
     Parameters
     ----------
     color : str
@@ -314,12 +314,12 @@ def munsell_color_to_rgb(color):
 
 def munsell_specification_to_rgb(spec):
     """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
-    
+
     Parameters
     ----------
     spec : np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
 
     Returns
@@ -332,7 +332,7 @@ def munsell_specification_to_rgb(spec):
     See https://www.munsellcolourscienceforpainters.com/MunsellResources/MunsellResources.html
     and https://stackoverflow.com/questions/3620663/color-theory-how-to-convert-munsell-hvc-to-rgb-hsb-hsl
     """
-    # The first step is to convert the Munsell color to *CIE xyY* 
+    # The first step is to convert the Munsell color to *CIE xyY*
     # colorspace.
     xyY = cnm.munsell_specification_to_xyY(spec)
 
@@ -344,15 +344,15 @@ def munsell_specification_to_rgb(spec):
     # http://nbviewer.ipython.org/github/colour-science/colour-ipython/blob/master/notebooks/colorimetry/illuminants.ipynb#CIE-Illuminant-C
 
     # It is necessary in order to ensure white stays white when
-    # converting to *sRGB* colorspace and its different whitepoint 
-    # (*CIE Standard Illuminant D65*) by performing chromatic 
+    # converting to *sRGB* colorspace and its different whitepoint
+    # (*CIE Standard Illuminant D65*) by performing chromatic
     # adaptation between the two different illuminants.
     return colour.XYZ_to_sRGB(XYZ, ILLUMINANT_C)
 
 
 def deprecated_rgb_to_munsell_specification(r, g, b):
     """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
-    
+
     Parameters
     ----------
     r, g, b : number in the domain [0, 255]
@@ -361,7 +361,7 @@ def deprecated_rgb_to_munsell_specification(r, g, b):
     -------
     np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
 
     Notes
@@ -372,7 +372,7 @@ def deprecated_rgb_to_munsell_specification(r, g, b):
     Use of this function is not recommended.
 
     The 'colour' package raises AssertionErrors for values outside the expected
-    domains for value and chroma, and will also raise errors when no convergence 
+    domains for value and chroma, and will also raise errors when no convergence
     is found (usually for high-value, low-chroma colors).
     """
     rgb = np.array([r / 255, g / 255, b / 255])
@@ -397,7 +397,7 @@ def deprecated_xyY_to_munsell_specification(xyY):
     -------
     np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
 
     Notes
@@ -405,7 +405,7 @@ def deprecated_xyY_to_munsell_specification(xyY):
     Use of this function is not recommended.
 
     The 'colour' package raises AssertionErrors for values outside the expected
-    domains for value and chroma, and will also raise errors when no convergence 
+    domains for value and chroma, and will also raise errors when no convergence
     is found (usually for high-value, low-chroma colors).
     """
     v = Y_to_munsell_value(xyY[2])
@@ -431,9 +431,9 @@ def neutrals():
 
 def Y_to_munsell_value(Y):
     """Get the Munsell `value` corresponding to an xyY `Y` luminosity.
-    
-    Use the 'colour' package's `munsell_value_ASTMD1535` function to 
-    convert the `Y` luminosity value of the xyY color space in the domain [0, 1] 
+
+    Use the 'colour' package's `munsell_value_ASTMD1535` function to
+    convert the `Y` luminosity value of the xyY color space in the domain [0, 1]
     into the corresponding Munsell `value` in the domain [0, 10].
     """
     with colour.utilities.common.domain_range_scale('ignore'):

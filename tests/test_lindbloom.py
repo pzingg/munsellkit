@@ -22,14 +22,14 @@ REALPAINT_COLORS = [
 ]
 
 def print_spec(name, spec):
-  hue_shade, value, chroma, hue_index = spec 
+  hue_shade, value, chroma, hue_index = spec
   color = cnm.munsell_specification_to_munsell_colour(spec)
   print(f'{name} -> hvc {hue_shade} {value} {chroma} {hue_index} -> {color}')
 
 def test_inverse():
     for name in ['2.5G8/4', '5R6/6']:
       rgb = mkit.munsell_color_to_rgb(name)
-      rgb = rgb * 255 
+      rgb = rgb * 255
       lab1 = lindbloom.rgb_to_uplab(rgb[0], rgb[1], rgb[2])
       spec = lindbloom.uplab_to_munsell_specification(lab1)
       lab2 = lindbloom.munsell_specification_to_uplab(spec)
@@ -51,11 +51,11 @@ def test_color():
       '2.5PB8/6',
       '2.5P8/4',
       '2.5RP8/4',
-      '5RP8/4',  
+      '5RP8/4',
       '7.5RP8/4',
-      '10RP8/4', 
+      '10RP8/4',
     ]:
-        rgb = mkit.munsell_color_to_rgb(name) 
+        rgb = mkit.munsell_color_to_rgb(name)
         if np.isnan(rgb[0]):
             print(f'{name} not available')
             continue

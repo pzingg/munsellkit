@@ -25,7 +25,7 @@ Available from https://www.colour-science.org
 The R language **munsellinterpol** package.
 Available from https://cran.r-project.org/web/packages/munsellinterpol/index.html
 
-The **Pillow** Python imaging library, including the **ImageCms** color management module, 
+The **Pillow** Python imaging library, including the **ImageCms** color management module,
 which is built on top of the **Little CMS** color engine.
 Available from https://pillow.readthedocs.io/en/stable
 And https://www.littlecms.com/color-engine
@@ -38,7 +38,7 @@ profile file for converting to and from the UP LAB space.
 Available from http://www.brucelindbloom.com/index.html?UPLab.html
 
 This package was created with **Cookiecutter**<a href="#note1" id="note1ref"><sup>[1]</sup><a>
-and the **audreyr/cookiecutter-pypackage**<a href="#note2" id="note2ref"><sup>[2]</sup><a> 
+and the **audreyr/cookiecutter-pypackage**<a href="#note2" id="note2ref"><sup>[2]</sup><a>
 project template.
 
 <a id="note1" href="#note1ref"><sup>1</sup></a>Cookiecutter: https://github.com/audreyr/cookiecutter

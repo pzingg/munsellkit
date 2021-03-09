@@ -122,7 +122,7 @@ $ pytest tests.test_munsellkit
 
 ## Deploying
 
-A reminder for the maintainers on how to deploy. 
+A reminder for the maintainers on how to deploy.
 
 Make sure all your changes are committed (including an entry in CHANGELOG.md).
 

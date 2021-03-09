@@ -23,7 +23,7 @@ def xyY_to_munsell_specification(xyY):
     -------
     np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
     xyY_adjusted, value = _adjust_value_up(xyY)
@@ -59,7 +59,7 @@ def _adjust_to_macadam_limits(xyY):
         if volume.is_within_macadam_limits(xyY_temp, munsell.ILLUMINANT_NAME_MUNSELL):
             warnings.warn(f'Y adjusted from {Y:.03f} to {xyY_temp[2]:.03f}')
             return xyY_temp
-    
+
     raise RuntimeError(f'Could not adjust MacAdam for xyY {xyY}')
 
 
@@ -70,7 +70,7 @@ def _adjust_value_up(xyY):
     Munsell `value` for the color is in the domain [1, 10].
     """
     Y = xyY[2]
-  
+
     # Already in domain '1'
     # Y = to_domain_1(Y)
 
