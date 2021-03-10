@@ -12,6 +12,16 @@ Munsell color space tools
 * Documentation: https://munsellkit.readthedocs.io.
 
 
+## Requirements
+
+To access features in the 'munsellkit.minterp' module, you must have 
+'Rscript' (part of the 'R' language) installed on your machine accessible 
+by a shell from Python ('Rscript' must be in your environment's `PATH`). 
+
+The R runtime must have the 'munsellinterpol' and 'jsonlite' packages 
+installed.
+
+
 ## Features
 
 * TODO
