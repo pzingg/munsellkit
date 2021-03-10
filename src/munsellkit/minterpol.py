@@ -11,8 +11,9 @@ import json
 import shutil
 import subprocess
 import numpy as np
-import colorspacious
 import colour
+
+import munsellkit
 
 
 RSCRIPTS_PACKAGE = 'munsellkit.rscripts'
@@ -105,20 +106,10 @@ def jch_to_munsell_specification(jch):
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
       with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
-
-    Notes
-    -----
-    Uses the colorspacious package.
     """
-    jch_space = {
-      'name': 'CIECAM02-subset',
-      'axes': 'JCh',
-      'ciecam02_space': colorspacious.CIECAM02Space.sRGB
-    }
-
-    XYZ = colorspacious.cspace_convert(jch, jch_space, 'XYZ100')
-    xyY = colour.XYZ_to_xyY(XYZ / 100)
-    # print(f'JCh {jch} -> XYZ {XYZ} -> xyY {xyY}')
+    XYZ = munsellkit.jch_to_xyz(jch)
+    xyY = colour.XYZ_to_xyY(XYZ)
+    # print(f'mint jch {jch} -> XYZ {XYZ} -> xyY {xyY}')
 
     return xyY_to_munsell_specification(xyY)
 

@@ -7,7 +7,7 @@ and ICC profile. See http://www.brucelindbloom.com/index.html?UPLab.html.
 import importlib.resources
 import math
 import numpy as np
-import colorspacious
+import colour
 from PIL import Image, ImageCms
 
 import munsellkit
@@ -77,31 +77,15 @@ def jch_to_munsell_specification(jch, with_renotation=False):
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
       with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
-
-    Notes
-    -----
-    Do not use this. The conversion from JCh to Lab seems incorrect.
-    Uses the colorspacious package.
     """
-    jch_space = {
-      'name': 'CIECAM02-subset',
-      'axes': 'JCh',
-      'ciecam02_space': colorspacious.CIECAM02Space.sRGB
-    }
-    lab_space = {
-      'name': 'CIELab',
-      'XYZ100_w': 'D65' # 'C'?
-    }
+    XYZ = munsellkit.jch_to_xyz(jch)
+    rgb = munsellkit.xyz_to_rgb(XYZ)
+    # print(f'mlin jch {jch} -> XYZ {XYZ} -> rgb {rgb}')
 
-    lab = colorspacious.cspace_convert(jch, jch_space, lab_space)
-    # print(f'JCh {jch} -> lab {lab}')
-
-    # LAB image format: 24-bit color, luminance, + 2 color channels
-    # L is uint8, a, b are int8
-    L = _clamp_uint8(lab[0])
-    a = _clamp_int8(lab[1])
-    b = _clamp_int8(lab[2])
-    return _to_munsell_specification('LAB', (L, a, b), with_renotation)
+    r = _clamp_uint8(rgb[0])
+    g = _clamp_uint8(rgb[1])
+    b = _clamp_uint8(rgb[2])
+    return _to_munsell_specification('RGB', (r, g, b), with_renotation)
 
 
 # Heuristic factors converting from l a* b* to value and chroma
@@ -277,6 +261,26 @@ def munsell_specification_to_uplab(spec):
     return np.array([l, a_star, b_star])
 
 
+def rgb_to_uplab(r, g, b):
+    """Convert an RGB color to its equivalent in the normalized UP LAB space.
+
+    Parameters
+    ----------
+    r, g, b : number in domain [0, 255]
+      The color to be converted.
+
+    Returns
+    -------
+    np.ndarray of shape (3,) and dtype float
+      The `l', `a-star` and `b-star` values for the color, with `l` in the domain [0, 1],
+      and `a-star` and `b-star` each in the domain [-0.5, 0.5].
+    """
+    r = _clamp_uint8(r)
+    g = _clamp_uint8(g)
+    b = _clamp_uint8(b)
+    return _to_uplab('RGB', (r, g, b))
+
+
 def _clamp_uint8(v):
     return min(255, max(0, int(v)))
 
@@ -328,8 +332,10 @@ def _to_uplab(mode, color):
         im=source_image,
         transform=transform
     )
-    ml, ma, mb = list(uplab_image.getdata())[0]
+    uplab = list(uplab_image.getdata())[0]
+    # print(f'color {color} -> uplab {uplab}')
 
+    ml, ma, mb = uplab
     # This is undocumented, but it works
     # Normalize a and b in [-128, 127]
     a_star = ma - 128

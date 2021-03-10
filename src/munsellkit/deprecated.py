@@ -2,16 +2,136 @@
 
 import warnings
 import numpy as np
+
+import colorspacious
 import colour
 from colour import notation, volume
-import munsellkit as mkit
 
 
 warnings.simplefilter('ignore', category=utilities.ColourUsageWarning)
 
 
+def jch_to_xyz_colorspacious(jch):
+    """Convert from CIECAM02 JCh color to the XYZ space."""
+    jch_space = {
+      'name': 'CIECAM02-subset',
+      'axes': 'JCh',
+      'ciecam02_space': colorspacious.CIECAM02Space.sRGB
+    }
+    return colorspacious.cspace_convert(jch, jch_space, 'XYZ1')
 
-def xyY_to_munsell_specification(xyY):
+
+def jch_to_rgb_colorspacious(jch):
+    """Convert from CIECAM02 JCh color to the XYZ space."""
+    jch_space = {
+      'name': 'CIECAM02-subset',
+      'axes': 'JCh',
+      'ciecam02_space': colorspacious.CIECAM02Space.sRGB
+    }
+    rgb = colorspacious.cspace_convert(jch, jch_space, 'sRGB255')
+    return np.array([clamp_255(v) for v in rgb])
+
+
+def xyz_to_rgb_colorspacious(XYZ):
+    """Convert an XYZ color to the sRGB space.
+    
+    Parameters
+    ----------
+    XYZ : ndarray of shape (3,) and dtype float
+      Tristimulus values in the domain [0, 1].
+
+    Returns
+    -------
+    ndarray of shape (3,) and dtype float
+      The RGB values in the domain [0, 255].
+    """    
+    rgb = colorspacious.cspace_convert(XYZ, 'XYZ1', 'sRGB255')
+    return np.array([clamp_255(v) for v in rgb])
+
+
+def rgb_to_xyz_colorspacious(rgb):
+    """Convert an RGB color to the XYZ space.
+    
+    Parameters
+    ----------
+    rgb : ndarray of shape (3,) and dtype float
+      The RGB values in the domain [0, 255].
+
+    Returns
+    -------
+    ndarray of shape (3,) and dtype float
+      Tristimulus values in the domain [0, 1].
+    """    
+    return colorspacious.cspace_convert(rgb, 'sRGB255', 'XYZ1')
+
+
+def unsafe_rgb_to_munsell_specification(r, g, b):
+    """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
+
+    Parameters
+    ----------
+    r, g, b : number in the domain [0, 255]
+
+    Returns
+    -------
+    np.ndarray of shape (4,) and dtype float
+      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
+      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
+
+    Notes
+    -----
+    See https://www.munsellcolourscienceforpainters.com/MunsellResources/MunsellResources.html
+    and https://stackoverflow.com/questions/3620663/color-theory-how-to-convert-munsell-hvc-to-rgb-hsb-hsl
+
+    Use of this function is not recommended.
+
+    The 'colour' package raises AssertionErrors for values outside the expected
+    domains for value and chroma, and will also raise errors when no convergence
+    is found (usually for high-value, low-chroma colors).
+    """
+    rgb = np.array([r / 255, g / 255, b / 255])
+    if rgb.max() == 0:
+        return np.array([np.nan, 0, np.nan, np.nan])
+
+    XYZ = colour.sRGB_to_XYZ(rgb, ILLUMINANT_C)
+    xyY = colour.XYZ_to_xyY(XYZ)
+    return unsafe_xyY_to_munsell_specification(xyY)
+
+
+def unsafe_xyY_to_munsell_specification(xyY):
+    """Convert a color in xyY space to its Munsell equivalent.
+
+    Parameters
+    ----------
+    xyY : np.ndarray of shape (3,) and dtype float
+      The tristimulus values for the color, each in the domain [0, 1].
+
+    Returns
+    -------
+    np.ndarray of shape (4,) and dtype float
+      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
+      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
+
+    Notes
+    -----
+    Use of this function is not recommended.
+
+    The 'colour' package raises AssertionErrors for values outside the expected
+    domains for value and chroma, and will also raise errors when no convergence
+    is found (usually for high-value, low-chroma colors).
+    """
+    v = Y_to_munsell_value(xyY[2])
+    # if v < 1.0:
+    #    return np.array([np.nan, v, np.nan, np.nan])
+
+    # This can raise:
+    # ColourUsageWarning: "<color>" is not within "MacAdam" limits for illuminant "C"
+    return notation.munsell.xyY_to_munsell_specification(xyY)
+
+
+def safe_xyY_to_munsell_specification(xyY):
     """Use the 'colour' package to convert from xyY space to a Munsell color.
 
     Parameters
