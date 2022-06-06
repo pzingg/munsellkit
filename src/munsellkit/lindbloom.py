@@ -1,12 +1,13 @@
 """UP LAB color space conversions.
 
-Functions that use Bruce Lindbloom's Uniform Perceptual LAB color space 
+Functions that use Bruce Lindbloom's Uniform Perceptual LAB color space
 and ICC profile. See http://www.brucelindbloom.com/index.html?UPLab.html.
 """
 
 import importlib.resources
 import math
 import numpy as np
+import colour
 from PIL import Image, ImageCms
 
 import munsellkit
@@ -37,68 +38,54 @@ def rgb_to_munsell_specification(r, g, b, with_renotation=False):
     ----------
     r, g, b : number in the domain [0, 255]
 
+    with_renotaion : bool
+        If True, return a tuple of the interpolated Munsell specification and
+        a Munsell specification that is in the original Renotation.
+        If False, returns just the interpolated Munsell specification.
+
     Returns
     -------
-    np.ndarray of shape (4,) and dtype float
+    np.ndarray of shape (4,) and dtype float (or 2-tuple of np.ndarray)
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
-    lab = rgb_to_uplab(r, g, b)
-    raw_spec = uplab_to_munsell_specification(lab)
-    if with_renotation:
-        renotated_spec = uplab_to_renotation_specification(raw_spec, lab)
-        return (raw_spec, renotated_spec)
-    else:
-        return raw_spec
+    r = _clamp_uint8(r)
+    g = _clamp_uint8(g)
+    b = _clamp_uint8(b)
 
-def rgb_to_uplab(r, g, b):
-    """Transform a color from the sRGB color space to the UP LAB color space.
+    return _to_munsell_specification('RGB', (r, g, b), with_renotation)
+
+
+def jch_to_munsell_specification(jch, with_renotation=False):
+    """Convert a color in the CIECAM02 Jch space to its Munsell equivalent.
 
     Parameters
     ----------
-    r, g, b : number in the domain [0, 255]
+    jch : np.ndarray of shape (3,) and dtype float
+      The `J`, `C` and `h` values for the color, with `J` and `C` in the domain
+      [0, 100] and `h` in the domain [0, 360].
+
+    with_renotaion : bool
+        If True, return a tuple of the interpolated Munsell specification and
+        a Munsell specification that is in the original Renotation.
+        If False, returns just the interpolated Munsell specification.
 
     Returns
     -------
-    np.ndarray of shape (3,) and dtype float
-      The `l', `a-star` and `b-star` values for the color, with `l` in the domain [0, 1],
-      and `a-star` and `b-star` each in the domain [-0.5, 0.5].
-
-    Notes
-    -----
-    Uses ImageCms (LittleCMS technology) and Lindbloom's Uniform Perceptual LAB
-    ICC profile. This technique seems to work more reliably than the Colour Science 
-    algorithms, which choke and/or assert quite frequently.  However the LAB space
-    that is used is only 8 bits per channel.
+    np.ndarray of shape (4,) and dtype float (or 2-tuple of np.ndarray)
+      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
+      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
-    # Load the profiles and build a transform
-    srgb_to_uplab_transform = _build_transform()
+    XYZ = munsellkit.jch_to_xyz(jch)
+    rgb = munsellkit.xyz_to_rgb(XYZ)
+    # print(f'mlin jch {jch} -> XYZ {XYZ} -> rgb {rgb}')
 
-    # Make a 1-pixel image to be transformed.
-    r = _clamp_8(r)
-    g = _clamp_8(g)
-    b = _clamp_8(b)
-    rgb_image = Image.new('RGB', (1, 1), color=(r, g, b))
-
-    # Create a new image by applying the transform object to the source image.
-    uplab_image = ImageCms.applyTransform(
-        im=rgb_image,
-        transform=srgb_to_uplab_transform
-    )
-    ml, ma, mb = list(uplab_image.getdata())[0]
-    # print(f'RGB {r} {g} {b} -> UPLAB {ml}, {ma}, {mb}'
-
-    # This is undocumented, but it works
-    # Normalize a and b in [-128, 127]
-    a_star = ma - 128
-    b_star = mb - 128
-
-    lab = np.array([ml, a_star, b_star], dtype=float)
-    lab = lab / 255
-
-    # Now l is in [0, 1], and a and b are in [-0.5, 0.5]
-    return lab
+    r = _clamp_uint8(rgb[0])
+    g = _clamp_uint8(rgb[1])
+    b = _clamp_uint8(rgb[2])
+    return _to_munsell_specification('RGB', (r, g, b), with_renotation)
 
 
 # Heuristic factors converting from l a* b* to value and chroma
@@ -119,7 +106,7 @@ def uplab_to_munsell_specification(lab):
     -------
     np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
     l, a_star, b_star = lab
@@ -138,16 +125,16 @@ def uplab_to_munsell_specification(lab):
 
     # Convert angles to Colorlab hues and hue_indexes
     # | Expect  | angle |   hue | (idx, sh) | index |
-    # |  2.5 RP |     0 |   2.5 | (0,  2.5) |     8 | 
-    # |  5.0 RP |     9 |   5.0 | (0,  5.0) |     8 | 
-    # |  7.5 RP |    18 |   7.5 | (0,  7.5) |     8 | 
-    # | 10.0 RP |    24 |  10.0 | (0, 10.0) |     8 | 
+    # |  2.5 RP |     0 |   2.5 | (0,  2.5) |     8 |
+    # |  5.0 RP |     9 |   5.0 | (0,  5.0) |     8 |
+    # |  7.5 RP |    18 |   7.5 | (0,  7.5) |     8 |
+    # | 10.0 RP |    24 |  10.0 | (0, 10.0) |     8 |
     # |  2.5 R  |    36 |  12.5 | (1,  2.5) |     7 |
-    # ... 
-    # |  2.5 P  |   324 |  92.5 | (9,  2.5) |     9 | 
-    # |  5.0 P  |   333 |  95.0 | (9,  5.0) |     9 | 
-    # |  7.5 P  |   342 |  97.5 | (9,  7.5) |     9 | 
-    # | 10.0 P  |   351 | 100.0 | (9, 10.0) |     9 | 
+    # ...
+    # |  2.5 P  |   324 |  92.5 | (9,  2.5) |     9 |
+    # |  5.0 P  |   333 |  95.0 | (9,  5.0) |     9 |
+    # |  7.5 P  |   342 |  97.5 | (9,  7.5) |     9 |
+    # | 10.0 P  |   351 | 100.0 | (9, 10.0) |     9 |
 
     hue_0 = hue_angle * 100 / 360
     hue = hue_0 + 2.5
@@ -176,7 +163,7 @@ def uplab_to_renotation_specification(spec, lab):
     -------
     np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` one of [0, 2.5, 5, 7.5], `value` one of [0, 1, 2, ..., 10], 
+      with `hue_shade` one of [0, 2.5, 5, 7.5], `value` one of [0, 1, 2, ..., 10],
       `chroma` one of [0, 2, 4, ..., 50] and `hue_index` one of [1, 2, 3, ..., 10].
 
     Notes
@@ -184,7 +171,7 @@ def uplab_to_renotation_specification(spec, lab):
     Measures the distance in the UP LAB a-b color plane at the given `l` (luminosity) value
     between the given `a*` and `b*` values and those of 4 bracketing `a*` and `b*` value
     pairs from the Munsell renotation (`hue_shade` of 2.5, 5, 7.5 and 10, and `chroma` one
-    of [0, 2, 4, ..., 50]). Selects the one with the closest cartesian distance to the 
+    of [0, 2, 4, ..., 50]). Selects the one with the closest cartesian distance to the
     given target.
     """
     hue_shade, value, chroma, hue_index = spec
@@ -215,12 +202,12 @@ def uplab_to_renotation_specification(spec, lab):
     for ct in [c0, c1]:
         for ht in [h0, h1]:
             test_spec = munsellkit.normalized_color(
-                np.array([ht, value, ct, hue_index]), 
+                np.array([ht, value, ct, hue_index]),
                 rounding='renotation', out='spec')
             lt, at, bt = munsell_specification_to_uplab(test_spec)
             distance_sq = (at - a_star) * (at - a_star) + (bt - b_star) * (bt - b_star)
             # print(f'test {test_spec}: distance is {distance_sq}')
-            
+
             if closest_dist is None or closest_dist > distance_sq:
                 closest_dist = distance_sq
                 closest = test_spec
@@ -238,7 +225,7 @@ def munsell_specification_to_uplab(spec):
     ----------
     spec : np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
 
     Returns
@@ -274,22 +261,109 @@ def munsell_specification_to_uplab(spec):
     return np.array([l, a_star, b_star])
 
 
-def _clamp_8(v):
-    return int(min(255, max(0, v)))
+def rgb_to_uplab(r, g, b):
+    """Convert an RGB color to its equivalent in the normalized UP LAB space.
+
+    Parameters
+    ----------
+    r, g, b : number in domain [0, 255]
+      The color to be converted.
+
+    Returns
+    -------
+    np.ndarray of shape (3,) and dtype float
+      The `l', `a-star` and `b-star` values for the color, with `l` in the domain [0, 1],
+      and `a-star` and `b-star` each in the domain [-0.5, 0.5].
+    """
+    r = _clamp_uint8(r)
+    g = _clamp_uint8(g)
+    b = _clamp_uint8(b)
+    return _to_uplab('RGB', (r, g, b))
 
 
+def _clamp_uint8(v):
+    return min(255, max(0, int(v)))
 
-def _build_transform():
-    # Load UP LAB ICC profile from disk
-    with importlib.resources.open_binary(DATA_PACKAGE, 'CIELab_to_UPLab.icc') as f:
-        uplab_profile = ImageCms.getOpenProfile(f)
+
+def _clamp_int8(v):
+    return min(-128, max(127, int(v)))
+
+
+def _to_munsell_specification(mode, color, with_renotation):
+    uplab = _to_uplab(mode, color)
+    raw_spec = uplab_to_munsell_specification(uplab)
+    if with_renotation:
+        renotated_spec = uplab_to_renotation_specification(raw_spec, uplab)
+        return (raw_spec, renotated_spec)
+    else:
+        return raw_spec
+
+
+def _to_uplab(mode, color):
+    """Transform a color from the sRGB or LAB color space to the UP LAB color space.
+
+    Parameters
+    ----------
+    mode : {RGB, LAB}
+      The color space to be transformed.
+    color : 3-tuple of ints
+      For 'RGB' space, `r`, `g`, `b` in the domain [0, 255].
+      For 'LAB' space, `L`, `a`, `b` in the domain [0, 255].
+
+    Returns
+    -------
+    np.ndarray of shape (3,) and dtype float
+      The `l', `a-star` and `b-star` values for the color, with `l` in the domain [0, 1],
+      and `a-star` and `b-star` each in the domain [-0.5, 0.5].
+
+    Notes
+    -----
+    Uses ImageCms (LittleCMS technology) and Lindbloom's Uniform Perceptual LAB
+    ICC profile. This technique seems to work more reliably than the Colour Science
+    algorithms, which choke and/or assert quite frequently.  However the LAB space
+    that is used is only 8 bits per channel.
+    """
+    # Load the profiles and build a transform
+    transform = _build_transform(mode)
+    source_image = Image.new(mode, (1, 1), color=color)
+
+    # Create a new image by applying the transform object to the source image.
+    uplab_image = ImageCms.applyTransform(
+        im=source_image,
+        transform=transform
+    )
+    uplab = list(uplab_image.getdata())[0]
+    # print(f'color {color} -> uplab {uplab}')
+
+    ml, ma, mb = uplab
+    # This is undocumented, but it works
+    # Normalize a and b in [-128, 127]
+    a_star = ma - 128
+    b_star = mb - 128
+
+    lab = np.array([ml, a_star, b_star], dtype=float)
+    lab = lab / 255
+
+    # Now l is in [0, 1], and a and b are in [-0.5, 0.5]
+    return lab
+
+
+def _build_transform(mode):
+    if mode == 'RGB':
+        input_space = 'sRGB'
+    else:
+        input_space = mode
 
     # Create sRGB ICC profile in ImageCms package
-    srgb_profile = ImageCms.createProfile(colorSpace='sRGB')
+    input_profile = ImageCms.createProfile(colorSpace=input_space)
+
+    # Load UP LAB ICC profile from disk
+    with importlib.resources.open_binary(DATA_PACKAGE, 'CIELab_to_UPLab.icc') as f:
+        output_profile = ImageCms.getOpenProfile(f)
 
     # Create a transform object from the input and output profiles
     return ImageCms.buildTransform(
-        inputProfile=srgb_profile,
-        outputProfile=uplab_profile,
-        inMode='RGB',
+        inputProfile=input_profile,
+        outputProfile=output_profile,
+        inMode=mode,
         outMode='LAB')

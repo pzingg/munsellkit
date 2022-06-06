@@ -11,7 +11,9 @@ import json
 import shutil
 import subprocess
 import numpy as np
-import colorspacious
+import colour
+
+import munsellkit
 
 
 RSCRIPTS_PACKAGE = 'munsellkit.rscripts'
@@ -43,11 +45,11 @@ def rgb_to_munsell_specification(r, g, b):
     -------
     np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
     with importlib.resources.path(RSCRIPTS_PACKAGE, 'to_munsell.R') as rscript_path:
-        out = subprocess.check_output([_rscript_executable_path(), 
+        out = subprocess.check_output([_rscript_executable_path(),
             str(rscript_path), 'sRGB', str(r), str(g), str(b)])
     try:
         res = json.loads(out)
@@ -71,13 +73,13 @@ def xyY_to_munsell_specification(xyY):
     -------
     np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
     x, y, Y = xyY
 
     with importlib.resources.path(RSCRIPTS_PACKAGE, 'to_munsell.R') as rscript_path:
-        out = subprocess.check_output([_rscript_executable_path(), 
+        out = subprocess.check_output([_rscript_executable_path(),
             str(rscript_path), 'xyY', str(x), str(y), str(Y * 100)])
     try:
         res = json.loads(out)
@@ -102,29 +104,15 @@ def jch_to_munsell_specification(jch):
     -------
     np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
-
-    Notes
-    -----
-    Uses the colorspacious package.
     """
-    jch_space = {
-      'name': 'CIECAM02-subset', 
-      'axes': 'JCh', 
-      'ciecam02_space': colorspacious.CIECAM02Space.sRGB
-    }
-    xyzc_space = {
-      'name': 'CIELab', 
-      'XYZ100_w': 'C'
-    }
-
-    # We should use xyzc_space, but it breaks munsellinterpol
-    XYZ = colorspacious.cspace_convert(jch, jch_space, 'XYZ100') 
-    xyY = colour.XYZ_to_xyY(XYZ / 100)
-    # print(f'JCh {jch} -> XYZ {XYZ} -> xyY {xyY}')
+    XYZ = munsellkit.jch_to_xyz(jch)
+    xyY = colour.XYZ_to_xyY(XYZ)
+    # print(f'mint jch {jch} -> XYZ {XYZ} -> xyY {xyY}')
 
     return xyY_to_munsell_specification(xyY)
+
 
 def munsell_color_to_xyY(color, xyC='NBS'):
     """Use the R 'munsellinterpol' package to calculate the xyY values for a Munsell color.
@@ -135,7 +123,7 @@ def munsell_color_to_xyY(color, xyC='NBS'):
         A Munsell color name, like 'N5.5' or '7.5GY3.2/2.1'.
     xyC : str, default 'NBS'
         The name of the 'C' illuminant used to correct the color.
-    
+
     Returns
     -------
     np.ndarray of shape (3,) and dtype float
@@ -143,7 +131,7 @@ def munsell_color_to_xyY(color, xyC='NBS'):
         in the domain [0, 1].
     """
     with importlib.resources.path(RSCRIPTS_PACKAGE, 'munsell_to_xyy.R') as rscript_path:
-        out = subprocess.check_output([_rscript_executable_path(), 
+        out = subprocess.check_output([_rscript_executable_path(),
             str(rscript_path), color, xyC])
     try:
         res = json.loads(out)
@@ -161,7 +149,7 @@ def munsell_color_to_rgb(color):
     ----------
     color : str
         A Munsell color name, like 'N5.5' or '7.5GY3.2/2.1'.
-    
+
     Returns
     -------
     np.ndarray of shape (3,) and dtype float
@@ -169,7 +157,7 @@ def munsell_color_to_rgb(color):
         in the domain [0, 1].
     """
     with importlib.resources.path(RSCRIPTS_PACKAGE, 'munsell_to_rgb.R') as rscript_path:
-        out = subprocess.check_output([_rscript_executable_path(), 
+        out = subprocess.check_output([_rscript_executable_path(),
             str(rscript_path), color])
     try:
         res = json.loads(out)
@@ -189,7 +177,7 @@ def munsell_color_to_rgb(color):
 
 def _to_colorlab_specification(hvc):
     """Convert between Munsell color specification formats.
-    
+
     Convert a Munsell color specification from the 'munsellinterpol' package into
     the Colorlab-compatible format.
 
@@ -197,12 +185,12 @@ def _to_colorlab_specification(hvc):
     ----------
     hvc : array-like of shape (3,) and dtype float
       `hue`, `value`, and `chroma` as defined by the 'munsellinterpol' package.
-    
+
     Returns
     -------
     np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     """
     hue, value, chroma = hvc
@@ -223,7 +211,7 @@ def _to_colorlab_specification(hvc):
 
 def _to_colorlab_hue(hue):
     """Convert between Munsell hue value formats.
-    
+
     Convert a single hue value from 'munsellinterpol' package into
     `hue_shade` and `hue_index` Colorlab values.
 

@@ -9,7 +9,7 @@ import importlib.resources
 import re
 import numpy as np
 import colour
-from colour.notation import munsell as cnm
+from colour import notation
 
 import munsellkit.minterpol as mint
 
@@ -40,21 +40,21 @@ COLORLAB_HUE_NAMES = [
 ]
 
 
-def normalized_color(spec, rounding=1, truncate=True, out='all'): 
+def normalized_color(spec, rounding=1, truncate=True, out='all'):
     """Normalize the color defined by a Colorlab specification.
 
     Parameters
     ----------
     spec : np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
     rounding : int or 'renotation', default 1
       The number of decimal places to return in the 'total' item.
       If set to 'renotation' the hue_shade will be one of [0, 2.5, 5, 7.5].
       If omitted, no rounding will be done.
     truncate : boolean, default True
-      If true, trailing '.0' are stripped from the hue and color strings 
+      If true, trailing '.0' are stripped from the hue and color strings
       in the returned data.
     out : {'all','spec','color'}
       Determines the return value. If 'all', a three-tuple is returned.
@@ -65,7 +65,7 @@ def normalized_color(spec, rounding=1, truncate=True, out='all'):
     -------
     str
       The one- or two-letter code for the hue, like 'N' or 'PB'.
-    
+
     Raises
     ------
     ValueError if the hue_index is not an integer in [0, 10].
@@ -73,21 +73,41 @@ def normalized_color(spec, rounding=1, truncate=True, out='all'):
     hue_shade, value, chroma, hue_index = spec
     hue_index, hue_shade = normalized_hue(hue_index, hue_shade, rounding)
     if isinstance(rounding, str):
-        if rounding != 'renotation':
-            raise ValueError(f"Invalid rounding '{rounding}'")
+        m = re.match(r'renotation(-(\d+))?', rounding)
+        if not m:
+            raise ValueError(f"Can't parse rounding '{rounding}'")
+
         min_value = 1
-        min_chroma = 2
+        min_chroma = 1
         hue_decimals = 1
-        value_decimals = 0
-        chroma_decimals = 0
-        value = round(value)
-        chroma = round(chroma / 2) * 2
-        if chroma < 2:
-            # Coerce to neutral
-            value = 0
+
+        value_rounding = m.group(2)
+        if not value_rounding:
+            # Empty or None
+            value_rounding = 0
+        else:
+            value_rounding = int(value_rounding)
+
+        if value_rounding == 0:
+            min_chroma = 2
+            value_decimals = 0
+            value = round(value)
+            chroma_decimals = 0
+            chroma = round(chroma / 2) * 2
+        elif value_rounding == 1:
+            value_decimals = 1
+            value = round(2*value) / 2
+            chroma_decimals = 0
+            chroma = round(chroma)
+        else:
+            value_decimals = 2
+            value = round(4*value) / 4
+            chroma_decimals = 0
+            chroma = round(chroma)
     else:
         min_value = 0
-        min_chroma = 0
+        min_chroma = 1
+
         if rounding is not None:
             hue_decimals = rounding
             value_decimals = rounding
@@ -99,13 +119,18 @@ def normalized_color(spec, rounding=1, truncate=True, out='all'):
             value_decimals = 2
             chroma_decimals = 2
 
-    value = max(min_value, min(value, 10))
-    chroma = max(min_chroma, min(chroma, 50))
-    if value == 0:
+    if chroma < min_chroma:
+        # Coerce to neutral
+        chroma = 0
+    if chroma < 1:
         # Rounded to neutral
         hue_index = np.nan
         hue_shade = np.nan
         chroma = np.nan
+    else:
+        chroma = max(min_chroma, min(chroma, 50))
+
+    value = max(min_value, min(value, 10))
 
     norm_spec = np.array([hue_shade, value, chroma, hue_index])
     if out == 'spec':
@@ -146,7 +171,7 @@ def normalized_hue(hue_index, hue_shade=None, rounding=1):
       The `hue_index` possibly rounded.
     hue_shade : float
       The `hue_shade` possibly rounded.
-    
+
     Raises
     ------
     ValueError if the hue_index is not an integer in [0, 10].
@@ -161,8 +186,9 @@ def normalized_hue(hue_index, hue_shade=None, rounding=1):
     if hue_shade is None:
         raise ValueError(f'hue_shade is required')
     if isinstance(rounding, str):
-        if rounding != 'renotation':
-            raise ValueError(f"Invalid rounding '{rounding}'")
+        m = re.match(r'renotation(-(\d+))?', rounding)
+        if not m:
+            raise ValueError(f"Can't parse rounding '{rounding}'")
         hue_shade = round(hue_shade / 2.5) * 2.5
     elif rounding is not None:
         hue_shade = round(hue_shade, rounding)
@@ -186,7 +212,7 @@ def hue_name_from_hue_index(hue_index):
     -------
     str
       The one- or two-letter code for the hue, like 'N' or 'PB'.
-    
+
     Raises
     ------
     ValueError if the hue_index is not an integer in [0, 10].
@@ -213,7 +239,7 @@ def astm_hue(hue_index, hue_shade=None):
     Returns
     -------
     int
-      The ASTM hue value for the hue, in the domain [0, 90]. 
+      The ASTM hue value for the hue, in the domain [0, 90].
       'R' is 0, 'YR' is 10, etc. Returns 0 for 0 (neutral).
 
     Raises
@@ -224,7 +250,7 @@ def astm_hue(hue_index, hue_shade=None):
         hue_index = 0
     h = int(hue_index)
     if h != hue_index or h < 0 or h > 10:
-        raise ValueError(f'Invalid hue index {hue_index}')      
+        raise ValueError(f'Invalid hue index {hue_index}')
     if h == 0:
         return 0
     if hue_shade is None:
@@ -254,8 +280,8 @@ def hue_data(hue_index, hue_shade=None, decimals=1, truncate=True):
     total_hue : str
       The total code for the hue, like '2.5PB'.
     astm_hue : float
-      The ASTM hue value in the domain [0, 100] 
-    
+      The ASTM hue value in the domain [0, 100]
+
     Raises
     ------
     ValueError if the hue_index is not an integer in [0, 10].
@@ -282,7 +308,7 @@ def hue_index_from_hue_name(hue_name):
     Returns
     -------
     int
-      The Colorlab `hue_index` for the hue. 'B' is 1, 'BG' is 2, etc. 
+      The Colorlab `hue_index` for the hue. 'B' is 1, 'BG' is 2, etc.
       Returns 0 for 'N' (neutral).
 
     Raises
@@ -297,7 +323,7 @@ def hue_index_from_hue_name(hue_name):
 
 def munsell_color_to_rgb(color):
     """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
-    
+
     Parameters
     ----------
     color : str
@@ -308,18 +334,18 @@ def munsell_color_to_rgb(color):
     np.ndarray of shape (3,) and dtype float
       (`r`, `g`, `b`) with `r`, `g`, and `b` in the domain [0, 1]
     """
-    spec = cnm.munsell_colour_to_munsell_specification(color)
+    spec = notation.munsell.munsell_colour_to_munsell_specification(color)
     return munsell_specification_to_rgb(spec)
 
 
 def munsell_specification_to_rgb(spec):
     """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
-    
+
     Parameters
     ----------
     spec : np.ndarray of shape (4,) and dtype float
       A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
+      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in
       the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
 
     Returns
@@ -332,9 +358,9 @@ def munsell_specification_to_rgb(spec):
     See https://www.munsellcolourscienceforpainters.com/MunsellResources/MunsellResources.html
     and https://stackoverflow.com/questions/3620663/color-theory-how-to-convert-munsell-hvc-to-rgb-hsb-hsl
     """
-    # The first step is to convert the Munsell color to *CIE xyY* 
+    # The first step is to convert the Munsell color to *CIE xyY*
     # colorspace.
-    xyY = cnm.munsell_specification_to_xyY(spec)
+    xyY = notation.munsell.munsell_specification_to_xyY(spec)
 
     # We then perform conversion to *CIE XYZ* tristimulus values.
     XYZ = colour.xyY_to_XYZ(xyY)
@@ -344,85 +370,124 @@ def munsell_specification_to_rgb(spec):
     # http://nbviewer.ipython.org/github/colour-science/colour-ipython/blob/master/notebooks/colorimetry/illuminants.ipynb#CIE-Illuminant-C
 
     # It is necessary in order to ensure white stays white when
-    # converting to *sRGB* colorspace and its different whitepoint 
-    # (*CIE Standard Illuminant D65*) by performing chromatic 
+    # converting to *sRGB* colorspace and its different whitepoint
+    # (*CIE Standard Illuminant D65*) by performing chromatic
     # adaptation between the two different illuminants.
     return colour.XYZ_to_sRGB(XYZ, ILLUMINANT_C)
 
 
-def deprecated_rgb_to_munsell_specification(r, g, b):
-    """Use the 'colour' package's xyY conversion, adjusting for Munsell illuminant C.
-    
-    Parameters
-    ----------
-    r, g, b : number in the domain [0, 255]
-
-    Returns
-    -------
-    np.ndarray of shape (4,) and dtype float
-      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
-      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
-
-    Notes
-    -----
-    See https://www.munsellcolourscienceforpainters.com/MunsellResources/MunsellResources.html
-    and https://stackoverflow.com/questions/3620663/color-theory-how-to-convert-munsell-hvc-to-rgb-hsb-hsl
-
-    Use of this function is not recommended.
-
-    The 'colour' package raises AssertionErrors for values outside the expected
-    domains for value and chroma, and will also raise errors when no convergence 
-    is found (usually for high-value, low-chroma colors).
-    """
-    rgb = np.array([r / 255, g / 255, b / 255])
-    if rgb.max() == 0:
-        return np.array([np.nan, 0, np.nan, np.nan])
-
-    XYZ = colour.sRGB_to_XYZ(rgb, ILLUMINANT_C)
-    xyY = colour.XYZ_to_xyY(XYZ)
-    return xyY_to_munsell_specification(xyY)
-
-
-
-def deprecated_xyY_to_munsell_specification(xyY):
-    """Convert a color in xyY space to its Munsell equivalent.
-
-    Parameters
-    ----------
-    xyY : np.ndarray of shape (3,) and dtype float
-      The tristimulus values for the color, each in the domain [0, 1].
-
-    Returns
-    -------
-    np.ndarray of shape (4,) and dtype float
-      A Colorlab-compatible Munsell specification (`hue_shade`, `value`, `chroma`, `hue_index`),
-      with `hue_shade` in the domain [0, 10], `value` in the domain [0, 10], `chroma` in 
-      the domain [0, 50] and `hue_index` one of [1, 2, 3, ..., 10].
-
-    Notes
-    -----
-    Use of this function is not recommended.
-
-    The 'colour' package raises AssertionErrors for values outside the expected
-    domains for value and chroma, and will also raise errors when no convergence 
-    is found (usually for high-value, low-chroma colors).
-    """
-    v = Y_to_munsell_value(xyY[2])
-    # if v < 1.0:
-    #    return np.array([np.nan, v, np.nan, np.nan])
-
-    # This can raise:
-    # ColourUsageWarning: "<color>" is not within "MacAdam" limits for illuminant "C"
-    return cnm.xyY_to_munsell_specification(xyY)
-
-
 DATA_PACKAGE = 'munsellkit.data'
 
-def neutrals():
-    """Return a generator that reads the 'munsell_neutrals.csv' file.
+XYZ_WHITE = {
+  'D65': (95.05, 100.00, 108.88),
+  'C': (109.85, 100.0, 35.58)
+}
 
+CIECAM02_PARAMS = {
+  'low': {'L_A': 31.83, 'Y_b': 10.},
+  'high': {'L_A': 318.3, 'Y_b': 20.},
+  'default': {'L_A': 80., 'Y_b': 16.}
+}
+
+def jch_to_xyz(jch, whitepoint='D65', params='high'):
+    """Convert a CIECAM02 JCh color to the XYZ space.
+
+    Parameters
+    ----------
+    jch : np.ndarray of shape (3,) and dtype float
+      The JCh color values. `J` and `C` in the domain [0, 100], and `h` in the
+      domain [0, 360].
+
+    whitepoint : {D65, C}
+      The white point to be used in the conversion.
+
+    params : {high, low, default}
+      The luminance and background to be used in the conversion.
+
+    Returns
+    -------
+    ndarray of shape (3,) and dtype float
+      The tristimulus values in the domain [0, 1].
     """
+    J, C, h = jch
+    spec = colour.CAM_Specification_CIECAM02(J=J, C=C, h=h)
+    XYZ = colour.CIECAM02_to_XYZ(spec,
+                    XYZ_WHITE[whitepoint],
+                    CIECAM02_PARAMS[params]['L_A'],
+                    CIECAM02_PARAMS[params]['Y_b'])
+    return XYZ / 100
+
+
+def jch_to_rgb(jch, whitepoint='D65', params='high'):
+    """Convert a CIECAM02 JCh color to the XYZ space.
+
+    Parameters
+    ----------
+    jch : np.ndarray of shape (3,) and dtype float
+      The JCh color values. `J` and `C` in the domain [0, 100], and `h` in the
+      domain [0, 360].
+
+    whitepoint : {D65, C}
+      The white point to be used in the conversion.
+
+    params : {high, low, default}
+      The luminance and background to be used in the conversion.
+
+    Returns
+    -------
+    ndarray of shape (3,) and dtype float
+      The RGB values in the domain [0, 255].
+    """
+    XYZ = jch_to_xyz(jch, whitepoint=whitepoint, params=params)
+    return xyz_to_rgb(XYZ)
+
+
+def xyz_to_rgb(XYZ):
+    """Convert an XYZ color to the sRGB space.
+
+    Parameters
+    ----------
+    XYZ : ndarray of shape (3,) and dtype float
+      Tristimulus values in the domain [0, 1].
+
+    Returns
+    -------
+    ndarray of shape (3,) and dtype float
+      The RGB values in the domain [0, 255].
+    """
+    # D65 = colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer']['D65']
+    rgb = colour.XYZ_to_RGB(XYZ, ILLUMINANT_D65,
+        colour.RGB_COLOURSPACES['sRGB'].whitepoint,
+        colour.RGB_COLOURSPACES['sRGB'].matrix_XYZ_to_RGB,
+        'Bradford',
+        colour.RGB_COLOURSPACES['sRGB'].cctf_encoding)
+    return np.array([clamp_255(v * 255) for v in rgb])
+
+
+def rgb_to_xyz(rgb):
+    """Convert an RGB color to the XYZ space.
+
+    Parameters
+    ----------
+    rgb : ndarray of shape (3,) and dtype float
+      The RGB values in the domain [0, 255].
+
+    Returns
+    -------
+    ndarray of shape (3,) and dtype float
+      Tristimulus values in the domain [0, 1].
+    """
+    # D65 = colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer']['D65']
+    return colour.sRGB_to_XYZ(rgb / 255, ILLUMINANT_D65)
+
+
+def clamp_255(v):
+    """Clamp a value to the domain [0, 255]."""
+    return max(0, min(v, 255))
+
+
+def neutrals():
+    """Return a generator that reads the 'munsell_neutrals.csv' file."""
     with importlib.resources.open_text(DATA_PACKAGE, 'munsell_neutrals.csv') as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -431,9 +496,9 @@ def neutrals():
 
 def Y_to_munsell_value(Y):
     """Get the Munsell `value` corresponding to an xyY `Y` luminosity.
-    
-    Use the 'colour' package's `munsell_value_ASTMD1535` function to 
-    convert the `Y` luminosity value of the xyY color space in the domain [0, 1] 
+
+    Use the 'colour' package's `munsell_value_ASTMD1535` function to
+    convert the `Y` luminosity value of the xyY color space in the domain [0, 1]
     into the corresponding Munsell `value` in the domain [0, 10].
     """
     with colour.utilities.common.domain_range_scale('ignore'):
