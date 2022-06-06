@@ -5,27 +5,38 @@
 
 # MunsellKit
 
-
 Munsell color space tools
 
 * Free software: MIT license
 * Documentation: https://munsellkit.readthedocs.io.
 
-
 ## Requirements
 
-To access features in the 'munsellkit.minterp' module, you must have 
-'Rscript' (part of the 'R' language) installed on your machine accessible 
-by a shell from Python ('Rscript' must be in your environment's `PATH`). 
+To access features in the 'munsellkit.minterp' module, you must have
+'Rscript' (part of the 'R' language) installed on your machine accessible
+by a shell from Python ('Rscript' must be in your environment's `PATH`).
 
-The R runtime must have the 'munsellinterpol' and 'jsonlite' packages 
+The R runtime must have the 'munsellinterpol' and 'jsonlite' packages
 installed.
-
 
 ## Features
 
 * TODO
 
+## Installation and updates
+
+For local install:
+
+```
+python3 setup.py install --user
+```
+
+When bumping version, change values in
+
+* CHANGELOG.md,
+* setup.cfg,
+* setup.py and
+* \_\_init\_\_.py.
 
 ## Credits
 

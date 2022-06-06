@@ -40,7 +40,6 @@ COLORLAB_HUE_NAMES = [
 ]
 
 
-
 def normalized_color(spec, rounding=1, truncate=True, out='all'):
     """Normalize the color defined by a Colorlab specification.
 
@@ -74,21 +73,41 @@ def normalized_color(spec, rounding=1, truncate=True, out='all'):
     hue_shade, value, chroma, hue_index = spec
     hue_index, hue_shade = normalized_hue(hue_index, hue_shade, rounding)
     if isinstance(rounding, str):
-        if rounding != 'renotation':
-            raise ValueError(f"Invalid rounding '{rounding}'")
+        m = re.match(r'renotation(-(\d+))?', rounding)
+        if not m:
+            raise ValueError(f"Can't parse rounding '{rounding}'")
+
         min_value = 1
-        min_chroma = 2
+        min_chroma = 1
         hue_decimals = 1
-        value_decimals = 0
-        chroma_decimals = 0
-        value = round(value)
-        chroma = round(chroma / 2) * 2
-        if chroma < 2:
-            # Coerce to neutral
-            value = 0
+
+        value_rounding = m.group(2)
+        if not value_rounding:
+            # Empty or None
+            value_rounding = 0
+        else:
+            value_rounding = int(value_rounding)
+
+        if value_rounding == 0:
+            min_chroma = 2
+            value_decimals = 0
+            value = round(value)
+            chroma_decimals = 0
+            chroma = round(chroma / 2) * 2
+        elif value_rounding == 1:
+            value_decimals = 1
+            value = round(2*value) / 2
+            chroma_decimals = 0
+            chroma = round(chroma)
+        else:
+            value_decimals = 2
+            value = round(4*value) / 4
+            chroma_decimals = 0
+            chroma = round(chroma)
     else:
         min_value = 0
-        min_chroma = 0
+        min_chroma = 1
+
         if rounding is not None:
             hue_decimals = rounding
             value_decimals = rounding
@@ -100,13 +119,18 @@ def normalized_color(spec, rounding=1, truncate=True, out='all'):
             value_decimals = 2
             chroma_decimals = 2
 
-    value = max(min_value, min(value, 10))
-    chroma = max(min_chroma, min(chroma, 50))
-    if value == 0:
+    if chroma < min_chroma:
+        # Coerce to neutral
+        chroma = 0
+    if chroma < 1:
         # Rounded to neutral
         hue_index = np.nan
         hue_shade = np.nan
         chroma = np.nan
+    else:
+        chroma = max(min_chroma, min(chroma, 50))
+
+    value = max(min_value, min(value, 10))
 
     norm_spec = np.array([hue_shade, value, chroma, hue_index])
     if out == 'spec':
@@ -162,8 +186,9 @@ def normalized_hue(hue_index, hue_shade=None, rounding=1):
     if hue_shade is None:
         raise ValueError(f'hue_shade is required')
     if isinstance(rounding, str):
-        if rounding != 'renotation':
-            raise ValueError(f"Invalid rounding '{rounding}'")
+        m = re.match(r'renotation(-(\d+))?', rounding)
+        if not m:
+            raise ValueError(f"Can't parse rounding '{rounding}'")
         hue_shade = round(hue_shade / 2.5) * 2.5
     elif rounding is not None:
         hue_shade = round(hue_shade, rounding)
@@ -366,7 +391,7 @@ CIECAM02_PARAMS = {
 
 def jch_to_xyz(jch, whitepoint='D65', params='high'):
     """Convert a CIECAM02 JCh color to the XYZ space.
-    
+
     Parameters
     ----------
     jch : np.ndarray of shape (3,) and dtype float
@@ -395,7 +420,7 @@ def jch_to_xyz(jch, whitepoint='D65', params='high'):
 
 def jch_to_rgb(jch, whitepoint='D65', params='high'):
     """Convert a CIECAM02 JCh color to the XYZ space.
-    
+
     Parameters
     ----------
     jch : np.ndarray of shape (3,) and dtype float
@@ -419,7 +444,7 @@ def jch_to_rgb(jch, whitepoint='D65', params='high'):
 
 def xyz_to_rgb(XYZ):
     """Convert an XYZ color to the sRGB space.
-    
+
     Parameters
     ----------
     XYZ : ndarray of shape (3,) and dtype float
@@ -429,7 +454,7 @@ def xyz_to_rgb(XYZ):
     -------
     ndarray of shape (3,) and dtype float
       The RGB values in the domain [0, 255].
-    """    
+    """
     # D65 = colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer']['D65']
     rgb = colour.XYZ_to_RGB(XYZ, ILLUMINANT_D65,
         colour.RGB_COLOURSPACES['sRGB'].whitepoint,
@@ -441,7 +466,7 @@ def xyz_to_rgb(XYZ):
 
 def rgb_to_xyz(rgb):
     """Convert an RGB color to the XYZ space.
-    
+
     Parameters
     ----------
     rgb : ndarray of shape (3,) and dtype float
@@ -451,7 +476,7 @@ def rgb_to_xyz(rgb):
     -------
     ndarray of shape (3,) and dtype float
       Tristimulus values in the domain [0, 1].
-    """    
+    """
     # D65 = colour.CCS_ILLUMINANTS['CIE 1931 2 Degree Standard Observer']['D65']
     return colour.sRGB_to_XYZ(rgb / 255, ILLUMINANT_D65)
 
